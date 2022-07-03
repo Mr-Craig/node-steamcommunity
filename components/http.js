@@ -116,7 +116,6 @@ SteamCommunity.prototype._checkHttpError = function(err, response, callback, bod
 
 SteamCommunity.prototype._checkCommunityError = function(html, callback) {
 	var err;
-
 	if(typeof html === 'string' && html.match(/<h1>Sorry!<\/h1>/)) {
 		var match = html.match(/<h3>(.+)<\/h3>/);
 		err = new Error(match ? match[1] : "Unknown error occurred");

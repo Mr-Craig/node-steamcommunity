@@ -65,7 +65,7 @@ SteamCommunity.prototype.login = function(details, callback) {
 		this._setCookie(Request.cookie('steamMachineAuth' + parts[0] + '=' + encodeURIComponent(parts[1])), true);
 	}
 
-	var disableMobile = details.disableMobile;
+	var disableMobile = true;
 
 	var self = this;
 
@@ -85,11 +85,15 @@ SteamCommunity.prototype.login = function(details, callback) {
 		this._setCookie(Request.cookie("mobileClientVersion=0 (2.1.3)"));
 		this._setCookie(Request.cookie("mobileClient=android"));
 	} else {
-		mobileHeaders = {"Referer": "https://steamcommunity.com/login"};
+		mobileHeaders = {"Referer": "https://partner.steamgames.com/"};
 	}
 
-	this.httpRequestPost("https://steamcommunity.com/login/getrsakey/", {
-		"form": {"username": details.accountName},
+	var sessionID = generateSessionID();
+	var oAuth;
+	self._setCookie(Request.cookie('sessionid=' + sessionID));
+
+	this.httpRequestPost("https://partner.steamgames.com/login/getrsakey/", {
+		"form": {"username": details.accountName,"donotcache": Date.now(), "sessionid": sessionID},
 		"headers": mobileHeaders,
 		"json": true
 	}, function(err, response, body) {
@@ -114,8 +118,9 @@ SteamCommunity.prototype.login = function(details, callback) {
 			"captchagid": self._captchaGid,
 			"emailauth": details.authCode || "",
 			"emailsteamid": "",
+			"sessionid": sessionID,
 			"password": hex2b64(key.encrypt(details.password)),
-			"remember_login": "true",
+			"remember_login": "false",
 			"rsatimestamp": body.timestamp,
 			"twofactorcode": details.twoFactorCode || "",
 			"username": details.accountName,
@@ -130,13 +135,12 @@ SteamCommunity.prototype.login = function(details, callback) {
 		}
 
 		self.httpRequestPost({
-			"uri": "https://steamcommunity.com/login/dologin/",
-			"json": true,
+			"uri": "https://partner.steamgames.com/login/dologin/",
 			"form": formObj,
-			"headers": mobileHeaders
+			"headers": mobileHeaders,
+			"json": true
 		}, function(err, response, body) {
 			deleteMobileCookies();
-
 			if (err) {
 				callback(err);
 				return;
@@ -164,11 +168,8 @@ SteamCommunity.prototype.login = function(details, callback) {
 			} else if (!disableMobile && !body.oauth) {
 				callback(new Error("Malformed response"));
 			} else {
-				var sessionID = generateSessionID();
-				var oAuth;
-				self._setCookie(Request.cookie('sessionid=' + sessionID));
 
-				var cookies = self._jar.getCookieString("https://steamcommunity.com").split(';').map(function(cookie) {
+				var cookies = self._jar.getCookieString("https://partner.steamgames.com/").split(';').map(function(cookie) {
 					return cookie.trim();
 				});
 
@@ -291,6 +292,7 @@ SteamCommunity.prototype._setCookie = function(cookie, secure) {
 	this._jar.setCookie(cookie.clone(), protocol + "://steamcommunity.com");
 	this._jar.setCookie(cookie.clone(), protocol + "://store.steampowered.com");
 	this._jar.setCookie(cookie.clone(), protocol + "://help.steampowered.com");
+	this._jar.setCookie(cookie.clone(), protocol + "://partner.steamgames.com");
 };
 
 SteamCommunity.prototype.setCookies = function(cookies) {
@@ -578,6 +580,7 @@ require('./components/webapi.js');
 require('./components/twofactor.js');
 require('./components/confirmations.js');
 require('./components/help.js');
+require('./components/steamworks.js');
 require('./classes/CMarketItem.js');
 require('./classes/CMarketSearchResult.js');
 require('./classes/CSteamGroup.js');
